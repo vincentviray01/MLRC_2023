@@ -1,0 +1,15 @@
+artifact_uri: file:///home/vincent/projects/MLRC_2023/mlruns/0/1668ce43c989411a900a18bcb8ab1766/artifacts
+end_time: 1699769530914
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+name: ''
+run_id: 1668ce43c989411a900a18bcb8ab1766
+run_uuid: 1668ce43c989411a900a18bcb8ab1766
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1699769529636
+status: 4
+tags: []
+user_id: vincent
