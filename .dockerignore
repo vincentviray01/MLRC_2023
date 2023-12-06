@@ -1,8 +1,8 @@
 # Ignore files and directories
 mlruns
 data
-output
-output.ipynb
-test.ipynb
+src
 docker
 LICENSE
+README.md
+environment.txt
