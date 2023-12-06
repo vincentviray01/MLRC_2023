@@ -6,3 +6,5 @@ docker
 LICENSE
 README.md
 environment.txt
+.ipynb_checkpoints
+.git
