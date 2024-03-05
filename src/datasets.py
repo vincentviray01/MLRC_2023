@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 import numpy as np
 
 class TrainImageNetDataset(Dataset):
-    def __init__(self, data_path, data_labels_path, label_mapping_path, transform, data_reduction = 0.2):
+    def __init__(self, data_path, data_labels_path, label_mapping_path, transform, data_reduction = 0.0):
 
         self.data_paths = []
         self.data_labels = {}
@@ -20,7 +20,7 @@ class TrainImageNetDataset(Dataset):
             self.data_paths.extend(temp_data)
 
         label_mapping = {}
-        print(label_mapping_path)
+
         with open(label_mapping_path) as f:
             reader = csv.reader(f)
             for index, mapping in enumerate(reader):

@@ -75,8 +75,11 @@ def train_models(components, teacher, train_dataloader, epochs, device, run_id):
     def handleModel(mod):
         mod.train()
         mod.to(device)
+    def handleTeacher(teach):
+        teacher.eval()
+        teacher.to(device)
     
-    def mlThing(name, inputs):
+    def mlThing(name, inputs, loss_cntr):
         components[name]["opt"].zero_grad()
         predictions = components[name]["model"](inputs)
         if "ind" in name:
@@ -85,17 +88,30 @@ def train_models(components, teacher, train_dataloader, epochs, device, run_id):
             teacher_predictions = teacher(inputs)
             loss = components[name]["criterion"](predictions, labels, teacher_predictions, 0.5, 0.5)
         loss.backward()
+        # if loss_cntr == 0:
+        #     components[name]["previous_loss"] = loss.item()
+        # elif loss_cntr == 1:
+        #     components[name]["previous_loss"] = (components[name]["previous_loss"] - loss.item)
+        # else:
+        #     components[name]["previous_loss"] = (components[name]["previous_loss"] - loss.item)
+        components[name]["previous_loss"] = loss.item()
         components[name]["opt"].step()
         components[name]["running_loss"] += loss.item()
+        return loss
+
+    epoch_print = 4000
 
     for name in components:
         handleModel(components[name]["model"])
-    handleModel(teacher)
+    handleTeacher(teacher)
         
     for epoch in range(epochs):
         "Reset loss"
         for student in components:
             components[student]["running_loss"] = 0
+        loss_cntr = 0
+        indprevious_loss = 0.0
+        stdprevious_loss = 0.0
         
         "Begin training"
         for inputs, labels in tqdm(train_dataloader, leave = True, position = 0):
@@ -103,8 +119,28 @@ def train_models(components, teacher, train_dataloader, epochs, device, run_id):
             labels = F.one_hot(labels, num_classes=1000).float()
 
             for student in components:
-                mlThing(student, inputs)
+                loss = mlThing(student, inputs, loss_cntr)
+                
+                if loss_cntr > 0 and loss_cntr % epoch_print == 0:
+                    with open("test.txt", "a") as myfile:
+                        # myfile.write("appended text")
+                        previous_loss = components[student]['previous_loss']
+                        running_loss = components[student]['running_loss']
+                        myfile.write("Current loss: " + str(loss.item()))
+                        myfile.write("\n")
+                        myfile.write("Average loss over last something iterations: " + str(running_loss/epoch_print))
+                        # myfile.write("\n")
+                        # myfile.write("Avg delta loss per batch: " + str(previous_loss - loss.item()))
+                        myfile.write("\n")
+                        myfile.write("Average Loss delta: " + str(running_loss/epoch_print - previous_loss))
+                        
+                        myfile.write("\n")
+                        myfile.write("\n")
+                        components['student']['previous_loss'] = 0.0
+            loss_cntr += 1
+                
 
+        """ End of the epoch """
         for student in components:
             avg_loss = components[student]["running_loss"] / len(train_dataloader)
             print(f'Epoch [{epoch+1}/{epochs}], {student}: {avg_loss:.4f}')
@@ -112,6 +148,7 @@ def train_models(components, teacher, train_dataloader, epochs, device, run_id):
             # save training loss in mlflow
             with mlflow.start_run(run_id=run_id) as run:
                 mlflow.log_metric(student, avg_loss)
+
 
     with mlflow.start_run(run_id=run_id) as run:
         for student in components:
