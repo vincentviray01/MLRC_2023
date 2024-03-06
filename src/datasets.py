@@ -12,12 +12,14 @@ class TrainImageNetDataset(Dataset):
         self.data_labels = {}
         
         for path, subdirs, files in os.walk(data_path):
-            temp_data = []
+            # temp_data = []
             for name in files:
                 full_path = os.path.join(path, name)
-                temp_data.append(full_path)
-            temp_data = temp_data[:int(len(temp_data) * (1 - data_reduction))]
-            self.data_paths.extend(temp_data)
+                self.data_paths.append(full_path)
+
+            #     temp_data.append(full_path)
+            # temp_data = temp_data[:int(len(temp_data) * (1 - data_reduction))]
+            # self.data_paths.extend(temp_data)
 
         label_mapping = {}
 

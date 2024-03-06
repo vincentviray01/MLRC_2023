@@ -78,6 +78,8 @@ def train_models(components, teacher, train_dataloader, epochs, device, run_id):
     def handleTeacher(teach):
         teacher.eval()
         teacher.to(device)
+
+    epoch_print = 100
     
     def mlThing(name, inputs, loss_cntr):
         components[name]["opt"].zero_grad()
@@ -94,12 +96,12 @@ def train_models(components, teacher, train_dataloader, epochs, device, run_id):
         #     components[name]["previous_loss"] = (components[name]["previous_loss"] - loss.item)
         # else:
         #     components[name]["previous_loss"] = (components[name]["previous_loss"] - loss.item)
-        components[name]["previous_loss"] = loss.item()
+        # components[name]["previous_loss"] = loss.item()
         components[name]["opt"].step()
         components[name]["running_loss"] += loss.item()
         return loss
 
-    epoch_print = 4000
+    
 
     for name in components:
         handleModel(components[name]["model"])
@@ -126,17 +128,23 @@ def train_models(components, teacher, train_dataloader, epochs, device, run_id):
                         # myfile.write("appended text")
                         previous_loss = components[student]['previous_loss']
                         running_loss = components[student]['running_loss']
+                        myfile.write(student + " on iteration " + str(loss_cntr))
                         myfile.write("Current loss: " + str(loss.item()))
                         myfile.write("\n")
                         myfile.write("Average loss over last something iterations: " + str(running_loss/epoch_print))
                         # myfile.write("\n")
-                        # myfile.write("Avg delta loss per batch: " + str(previous_loss - loss.item()))
+                        myfile.write("Avg delta loss per batch: " + str(loss.item() - previous_loss))
                         myfile.write("\n")
                         myfile.write("Average Loss delta: " + str(running_loss/epoch_print - previous_loss))
                         
                         myfile.write("\n")
                         myfile.write("\n")
-                        components['student']['previous_loss'] = 0.0
+                if loss_cntr > 0 and loss_cntr % epoch_print == 0:
+                    print(name)
+                    print("Current loss:", loss)
+                    print("Loss delta:", loss - components[name]["previous_loss"])
+                    print("Avg loss per epoch", components[name]["previous_loss"]/epoch_print)
+                    components[name]['previous_loss'] = loss
             loss_cntr += 1
                 
 
