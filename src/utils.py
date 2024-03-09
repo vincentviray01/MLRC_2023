@@ -7,6 +7,123 @@ import numpy as np
 import torch
 import os
 
+import torch.nn.functional as F
+from tqdm import tqdm
+import mlflow
+
+def train_model(student, train_dataloader, criterion, optimizer, epochs, device, teacher = None):
+    student.train()
+    student.to(device)
+    student_name = "independent_student"
+    if teacher:
+        student_name = "student"
+        teacher.eval()
+        teacher.to(device)
+        
+    for epoch in range(epochs):
+        running_loss = 0.0
+        sampleNum = 0
+        currentLoss = 0
+
+        for inputs, labels in tqdm(train_dataloader, leave = True, position = 0):
+        # for inputs, labels in train_dataloader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            labels = F.one_hot(labels, num_classes=1000).float()
+
+            # Zero the gradients 
+            optimizer.zero_grad()
+
+            if teacher:
+                teacher_predictions = teacher(inputs)
+            student_predictions = student(inputs)
+
+            if teacher:
+                loss = criterion(student_predictions, labels, teacher_predictions, 0.5, 0.5)
+            else:
+                loss = criterion(independent_student_predictions, labels)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+            currentLoss += loss.item()
+
+            # if sampleNum % 100 == 0 and sampleNum > 0: # write this to a file somewhere else so tqdm doesnt mess up
+            #     print("loss: ", str(currentLoss/100))
+            #     print("total loss: ", str(running_loss/sampleNum))
+            #     currentLoss = 0
+            sampleNum += 1
+            # print(str(running_loss) + " ", end = '')
+            # break
+
+        average_loss = running_loss / len(train_dataloader)
+        print(f'Epoch [{epoch+1}/{epochs}], Loss: {average_loss:.4f}')
+
+        # save training loss in mlflow
+        with mlflow.start_run(run_id=run_id) as run:
+            mlflow.log_metric(student_name + "_training_loss", average_loss)
+
+    with mlflow.start_run(run_id=run_id) as run:
+        if teacher:
+            mlflow.pytorch.log_model(
+                pytorch_model=teacher.to("cpu"),
+                artifact_path="teacher",)
+
+        mlflow.pytorch.log_model(
+            pytorch_model=student.to("cpu"),
+            artifact_path=student_name)
+
+def train_models(components, teacher, train_dataloader, epochs, device, run_id):
+    def handleModel(mod):
+        mod.train()
+        mod.to(device)
+    
+    def mlThing(name, inputs):
+        components[name]["opt"].zero_grad()
+        predictions = components[name]["model"](inputs)
+        if "ind" in name:
+            loss = components[name]["criterion"](predictions, labels)
+        else:
+            teacher_predictions = teacher(inputs)
+            loss = components[name]["criterion"](predictions, labels, teacher_predictions, 0.5, 0.5)
+        loss.backward()
+        components[name]["opt"].step()
+        components[name]["running_loss"] += loss.item()
+
+    for name in components:
+        handleModel(components[name]["model"])
+    handleModel(teacher)
+        
+    for epoch in range(epochs):
+        "Reset loss"
+        for student in components:
+            components[student]["running_loss"] = 0
+        
+        "Begin training"
+        for inputs, labels in tqdm(train_dataloader, leave = True, position = 0):
+            inputs, labels = inputs.to(device), labels.to(device)
+            labels = F.one_hot(labels, num_classes=1000).float()
+
+            for student in components:
+                mlThing(student, inputs)
+
+        for student in components:
+            avg_loss = components[student]["running_loss"] / len(train_dataloader)
+            print(f'Epoch [{epoch+1}/{epochs}], {student}: {avg_loss:.4f}')
+
+            # save training loss in mlflow
+            with mlflow.start_run(run_id=run_id) as run:
+                mlflow.log_metric(student, avg_loss)
+
+    with mlflow.start_run(run_id=run_id) as run:
+        for student in components:
+            mlflow.pytorch.log_model(
+                pytorch_model=components[student]["model"].to("cpu"),
+                artifact_path=student)
+
+        mlflow.pytorch.log_model(
+            pytorch_model=teacher.to("cpu"),
+            artifact_path="teacher",)
+
+                
 def set_seed(seed):
     """Set seed"""
     random.seed(seed)
@@ -68,3 +185,5 @@ def check_two_models_have_same_weights(model1, model2):
             return False
 
     return True
+
+
