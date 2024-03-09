@@ -79,9 +79,9 @@ def train_models(components, teacher, train_dataloader, epochs, device, run_id):
         teacher.eval()
         teacher.to(device)
 
-    epoch_print = 100
+    epoch_print = 4000
     
-    def mlThing(name, inputs, loss_cntr):
+    def mlThing(name, inputs, loss_cntr, labels):
         components[name]["opt"].zero_grad()
         predictions = components[name]["model"](inputs)
         if "ind" in name:
@@ -121,7 +121,7 @@ def train_models(components, teacher, train_dataloader, epochs, device, run_id):
             labels = F.one_hot(labels, num_classes=1000).float()
 
             for student in components:
-                loss = mlThing(student, inputs, loss_cntr)
+                loss = mlThing(student, inputs, loss_cntr, labels)
                 
                 if loss_cntr > 0 and loss_cntr % epoch_print == 0:
                     with open("test.txt", "a") as myfile:
